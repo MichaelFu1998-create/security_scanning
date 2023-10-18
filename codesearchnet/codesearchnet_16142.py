@@ -1,0 +1,35 @@
+def _apply_check_methods(self, i, r,
+                              summarize=False,
+                              report_unexpected_exceptions=True,
+                              context=None):
+        """Apply 'check' methods on `r`."""
+
+        for a in dir(self):
+            if a.startswith('check'):
+                rdict = self._as_dict(r)
+                f = getattr(self, a)
+                try:
+                    f(rdict)
+                except RecordError as e:
+                    code = e.code if e.code is not None else RECORD_CHECK_FAILED
+                    p = {'code': code}
+                    if not summarize:
+                        message = e.message if e.message is not None else MESSAGES[RECORD_CHECK_FAILED]
+                        p['message'] = message
+                        p['row'] = i + 1
+                        p['record'] = r
+                        if context is not None: p['context'] = context
+                        if e.details is not None: p['details'] = e.details
+                    yield p
+                except Exception as e:
+                    if report_unexpected_exceptions:
+                        p = {'code': UNEXPECTED_EXCEPTION}
+                        if not summarize:
+                            p['message'] = MESSAGES[UNEXPECTED_EXCEPTION] % (e.__class__.__name__, e)
+                            p['row'] = i + 1
+                            p['record'] = r
+                            p['exception'] = e
+                            p['function'] = '%s: %s' % (f.__name__,
+                                                        f.__doc__)
+                            if context is not None: p['context'] = context
+                        yield p
